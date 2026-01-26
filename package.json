@@ -9,7 +9,10 @@
     "test": "echo \"No tests yet...\""
   },
   "dependencies": {
+    "@azure/cosmos": "^4.9.0",
     "@azure/functions": "^4.0.0",
+    "@azure/storage-blob": "^12.30.0",
+    "axios": "^1.13.3",
     "durable-functions": "^3.3.0"
   },
   "devDependencies": {

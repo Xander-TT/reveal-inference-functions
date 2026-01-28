@@ -23,6 +23,8 @@ const config = Object.freeze({
   blob: {
     connectionString: mustGet("REVEALBLOB_CONNECTION_STRING"),
     containerUploads: mustGet("REVEALBLOB_CONTAINER"),
+    // New: inference outputs container (optional - required in production to be explicit)
+    containerInference: process.env.REVEALBLOB_CONTAINER_INFERENCE || "inference",
   },
   aml: {
     endpoint: mustGet("AML_ENDPOINT"),

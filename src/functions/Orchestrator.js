@@ -12,6 +12,13 @@ df.app.orchestration(orchestratorName, function* (context) {
   // Deterministic accumulator (safe in orchestrator)
   let totals = { columnsDetected: 0, beamsDetected: 0, polygonsDetected: 0 };
 
+  // Durable retry policy for AML (activity retries are deterministic + tracked)
+  const amlRetry = new df.RetryOptions(2000 /* first retry after 2s */, 4 /* attempts */);
+  amlRetry.backoffCoefficient = 2; // exponential backoff
+  amlRetry.maxRetryIntervalInMilliseconds = 30000; // cap at 30s
+  // Optional: keep retrying for at most 5 minutes total
+  amlRetry.retryTimeoutInMilliseconds = 5 * 60 * 1000;
+
   try {
     const { project, floors } = yield context.df.callActivity("GetProjectAndFloors", {
       client_name,
@@ -42,8 +49,8 @@ df.app.orchestration(orchestratorName, function* (context) {
         blobPath: floor.planUrl,
       });
 
-      // 3) Call AML with SAS
-      const raw = yield context.df.callActivity("CallAmlInference", {
+      // 3) Call AML with SAS (durable retry policy)
+      const raw = yield context.df.callActivityWithRetry("CallAmlInference", amlRetry, {
         sasUrl,
         client_name,
         slug,
@@ -90,7 +97,7 @@ df.app.orchestration(orchestratorName, function* (context) {
         client_name,
         slug,
         processedFloors: i + 1,
-        totals, // <-- cumulative now
+        totals, // cumulative
       });
 
       context.df.setCustomStatus({

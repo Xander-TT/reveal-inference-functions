@@ -29,8 +29,20 @@ const config = Object.freeze({
   aml: {
     endpoint: mustGet("AML_ENDPOINT"),
     apiKey: mustGet("AML_API_KEY"),
+
+    // Optional. If set, adds header "azureml-model-deployment".
     deployment: process.env.AML_DEPLOYMENT || "",
+
+    // Request timeout (ms)
     timeoutMs: getInt("AML_TIMEOUT_MS", 120000),
+
+    // Axios-layer retry knobs (keep low; Durable retry is primary)
+    // Total attempts including the first try.
+    maxAttempts: getInt("AML_MAX_ATTEMPTS", 1),
+
+    // Backoff controls for axios-layer retries (only used if maxAttempts > 1)
+    baseDelayMs: getInt("AML_BASE_DELAY_MS", 1000),
+    maxDelayMs: getInt("AML_MAX_DELAY_MS", 15000),
   },
 });
 

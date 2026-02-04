@@ -10,8 +10,13 @@ const { config } = require("../shared/config");
 const PRODUCED_TYPES = new Set(["column", "staircaseOpening", "floorPlateOpening"]);
 
 function systemActor() {
-  return { userId: "system", email: "system@reveal", displayName: "Reveal Inference" };
+  return {
+    userId: "system",
+    email: "system@buildingreveal.com",
+    displayName: "Reveal Inference",
+  };
 }
+
 
 function safeIsoForFilename(iso) {
   return String(iso).replace(/[:.]/g, "-");

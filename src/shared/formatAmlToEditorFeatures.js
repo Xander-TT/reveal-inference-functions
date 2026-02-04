@@ -50,9 +50,15 @@ function classToFeatureType(cls) {
   return null;
 }
 
+
 function systemActor() {
-  return { userId: "system", email: "system@reveal", displayName: "Reveal Inference" };
+  return {
+    userId: "system",
+    email: "system@buildingreveal.com",
+    displayName: "Reveal Inference",
+  };
 }
+
 
 function buildMlFeaturesFromAml(raw, { runId, model }) {
   const now = new Date().toISOString();

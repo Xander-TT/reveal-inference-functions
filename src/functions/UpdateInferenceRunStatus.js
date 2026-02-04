@@ -1,12 +1,11 @@
 // src/functions/UpdateInferenceRunStatus.js
 const df = require("durable-functions");
-const { getContainer, pk } = require("../shared/cosmos");
+const { getBuildingContainer, pkBuilding } = require("../shared/cosmos");
 
 function runId(client_name, slug) {
   return `infer::${client_name}::${slug}`;
 }
 
-// Only allow these statuses
 const TERMINAL = new Set(["Completed", "Failed"]);
 const VALID = new Set(["Running", "Completed", "Failed"]);
 
@@ -20,16 +19,13 @@ df.app.activity("UpdateInferenceRunStatus", {
       throw new Error(`Invalid status '${status}'. Allowed: Running, Completed, Failed`);
     }
 
-    const container = getContainer();
+    const container = getBuildingContainer();
     const id = runId(client_name, slug);
-    const partitionKey = pk(client_name, slug);
+    const partitionKey = pkBuilding(client_name, slug);
 
-    // Read -> replace (simple + safe for small doc)
     const { resource: doc } = await container.item(id, partitionKey).read();
     if (!doc) {
-      throw new Error(
-        `inferenceRun not found (id='${id}', client_name='${client_name}', slug='${slug}')`
-      );
+      throw new Error(`inferenceRun not found (id='${id}', client_name='${client_name}', slug='${slug}')`);
     }
 
     const now = new Date().toISOString();
@@ -40,13 +36,10 @@ df.app.activity("UpdateInferenceRunStatus", {
     if (status) doc.status = status;
 
     doc.updatedAt = now;
-    if (status && TERMINAL.has(status) && !doc.completedAt) {
-      doc.completedAt = now;
-    }
+    if (status && TERMINAL.has(status) && !doc.completedAt) doc.completedAt = now;
 
     const { resource: saved } = await container.item(id, partitionKey).replace(doc);
 
-    // Return trimmed (avoid Cosmos system fields in durable history)
     return {
       id: saved.id,
       docType: saved.docType,

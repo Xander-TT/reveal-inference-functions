@@ -4,9 +4,6 @@ const { config } = require("./config");
 
 let _client;
 
-/**
- * Lazy singleton Cosmos client.
- */
 function getCosmosClient() {
   if (!_client) {
     _client = new CosmosClient({
@@ -17,16 +14,35 @@ function getCosmosClient() {
   return _client;
 }
 
-function getContainer() {
+function getBuildingContainer() {
   const client = getCosmosClient();
-  return client.database(config.cosmos.database).container(config.cosmos.container);
+  return client.database(config.cosmos.database).container(config.cosmos.containerBuilding);
 }
 
-/**
- * For hierarchical PK ["client_name","slug"], the JS SDK accepts partition key values as an array.
- */
-function pk(client_name, slug) {
+function getEditorDocsContainer() {
+  const client = getCosmosClient();
+  return client.database(config.cosmos.database).container(config.cosmos.containerEditorDocs);
+}
+
+function getEditorEventsContainer() {
+  const client = getCosmosClient();
+  return client.database(config.cosmos.database).container(config.cosmos.containerEditorEvents);
+}
+
+// Hierarchical PK for building container
+function pkBuilding(client_name, slug) {
   return [client_name, slug];
 }
 
-module.exports = { getContainer, pk };
+// Single PK for editor containers
+function pkFloorKey(floorKey) {
+  return floorKey;
+}
+
+module.exports = {
+  getBuildingContainer,
+  getEditorDocsContainer,
+  getEditorEventsContainer,
+  pkBuilding,
+  pkFloorKey,
+};

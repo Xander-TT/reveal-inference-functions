@@ -1,10 +1,7 @@
 // src/functions/GetProjectAndFloors.js
 const df = require("durable-functions");
-const { getContainer, pk } = require("../shared/cosmos");
+const { getBuildingContainer, pkBuilding } = require("../shared/cosmos");
 
-/**
- * Returns { project, floors } for a given client_name + slug.
- */
 df.app.activity("GetProjectAndFloors", {
   handler: async (input) => {
     const { client_name, slug } = input || {};
@@ -12,10 +9,9 @@ df.app.activity("GetProjectAndFloors", {
       throw new Error("GetProjectAndFloors requires { client_name, slug }");
     }
 
-    const container = getContainer();
-    const partitionKey = pk(client_name, slug);
+    const container = getBuildingContainer();
+    const partitionKey = pkBuilding(client_name, slug);
 
-    // 1) project
     const projectQuery = {
       query:
         "SELECT TOP 1 * FROM c WHERE c.docType = 'project' AND c.client_name = @client_name AND c.slug = @slug",
@@ -37,7 +33,6 @@ df.app.activity("GetProjectAndFloors", {
 
     const project = projects[0];
 
-    // 2) floors
     const floorsQuery = {
       query:
         "SELECT * FROM c WHERE c.docType = 'floor' AND c.client_name = @client_name AND c.slug = @slug ORDER BY c.createdAt",
@@ -51,7 +46,6 @@ df.app.activity("GetProjectAndFloors", {
       .query(floorsQuery, { partitionKey })
       .fetchAll();
 
-    // Return a trimmed work list (avoid dragging _rid/_etag, etc. through durable history)
     const floorWork = (floors || []).map((f) => ({
       id: f.id,
       name: f.name,
@@ -60,6 +54,7 @@ df.app.activity("GetProjectAndFloors", {
       imageHeight: f.imageHeight,
       paperScaleDenominator: f.paperScaleDenominator,
       paperScaleText: f.paperScaleText,
+      editorStateUrl: f.editorStateUrl,
     }));
 
     return {

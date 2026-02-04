@@ -9,14 +9,11 @@ df.app.orchestration(orchestratorName, function* (context) {
 
   context.df.setCustomStatus({ stage: "starting", client_name, slug });
 
-  // Deterministic accumulator (safe in orchestrator)
   let totals = { columnsDetected: 0, beamsDetected: 0, polygonsDetected: 0 };
 
-  // Durable retry policy for AML (activity retries are deterministic + tracked)
-  const amlRetry = new df.RetryOptions(2000 /* first retry after 2s */, 4 /* attempts */);
-  amlRetry.backoffCoefficient = 2; // exponential backoff
-  amlRetry.maxRetryIntervalInMilliseconds = 30000; // cap at 30s
-  // Optional: keep retrying for at most 5 minutes total
+  const amlRetry = new df.RetryOptions(2000, 4);
+  amlRetry.backoffCoefficient = 2;
+  amlRetry.maxRetryIntervalInMilliseconds = 30000;
   amlRetry.retryTimeoutInMilliseconds = 5 * 60 * 1000;
 
   try {
@@ -25,14 +22,13 @@ df.app.orchestration(orchestratorName, function* (context) {
       slug,
     });
 
-    // Initialize run status
     yield context.df.callActivity("UpdateInferenceRunStatus", {
       client_name,
       slug,
       status: "Running",
       totalFloors: floors.length,
       processedFloors: 0,
-      totals, // set to zeros
+      totals,
     });
 
     context.df.setCustomStatus({ stage: "processing", total: floors.length, processed: 0 });
@@ -41,15 +37,12 @@ df.app.orchestration(orchestratorName, function* (context) {
       const floor = floors[i];
       const floorId = floor.id;
 
-      // 1) Read editor latest.json
-      const latest = yield context.df.callActivity("ReadEditorLatest", { slug, floorId });
-
-      // 2) Generate SAS for the plan image
+      // 1) SAS for plan image
       const { sasUrl } = yield context.df.callActivity("GenerateSas", {
         blobPath: floor.planUrl,
       });
 
-      // 3) Call AML with SAS (durable retry policy)
+      // 2) AML call
       const raw = yield context.df.callActivityWithRetry("CallAmlInference", amlRetry, {
         sasUrl,
         client_name,
@@ -58,46 +51,45 @@ df.app.orchestration(orchestratorName, function* (context) {
         planUrl: floor.planUrl,
       });
 
-      // 4) Write raw inference JSON to inference container
+      // 3) Write raw inference JSON to blob
       yield context.df.callActivity("WriteRawInference", { slug, floorId, raw });
 
-      // 5) Format raw into editor update
-      const formatted = yield context.df.callActivity("FormatInference", {
-        latest,
+      // 4) Upsert Cosmos editorDoc + write editorEvents (+ optional legacy blob latest.json)
+      const upserted = yield context.df.callActivity("UpsertEditorDocFromInference", {
+        clientName: client_name, // your editorDoc examples use "AMC"
+        projectSlug: slug,
+        floorId,
+        basemapKey: floor.planUrl,
+        width: floor.imageWidth,
+        height: floor.imageHeight,
+        paperScaleDenominator: floor.paperScaleDenominator,
+        legacyEditorStateUrl: floor.editorStateUrl || null,
         raw,
         runId: runId || context.df.instanceId,
-      });
-      // formatted => { updatedLatest, counts }
-
-      // 6) Write updated latest.json (+history)
-      yield context.df.callActivity("WriteEditorLatest", {
-        slug,
-        floorId,
-        latestJson: formatted.updatedLatest,
+        model: raw?.model || null,
       });
 
-      // 7) Update floor metrics in Cosmos
+      // 5) Update floor metrics in building container
       yield context.df.callActivity("UpdateFloorMetrics", {
         client_name,
         slug,
         floorId,
-        counts: formatted.counts,
+        counts: upserted.counts,
       });
 
-      // 8) Accumulate totals deterministically
+      // 6) Accumulate totals
       totals = {
-        columnsDetected: (totals.columnsDetected || 0) + (formatted.counts.columnsDetected || 0),
-        beamsDetected: (totals.beamsDetected || 0) + (formatted.counts.beamsDetected || 0),
-        polygonsDetected:
-          (totals.polygonsDetected || 0) + (formatted.counts.polygonsDetected || 0),
+        columnsDetected: (totals.columnsDetected || 0) + (upserted.counts.columnsDetected || 0),
+        beamsDetected: (totals.beamsDetected || 0) + (upserted.counts.beamsDetected || 0),
+        polygonsDetected: (totals.polygonsDetected || 0) + (upserted.counts.polygonsDetected || 0),
       };
 
-      // 9) Persist run progress & cumulative totals
+      // 7) Persist run progress & cumulative totals
       yield context.df.callActivity("UpdateInferenceRunStatus", {
         client_name,
         slug,
         processedFloors: i + 1,
-        totals, // cumulative
+        totals,
       });
 
       context.df.setCustomStatus({
@@ -107,12 +99,11 @@ df.app.orchestration(orchestratorName, function* (context) {
       });
     }
 
-    // Finalize run
     yield context.df.callActivity("UpdateInferenceRunStatus", {
       client_name,
       slug,
       status: "Completed",
-      totals, // persist final totals
+      totals,
     });
 
     context.df.setCustomStatus({
@@ -124,7 +115,6 @@ df.app.orchestration(orchestratorName, function* (context) {
 
     return { ok: true, projectId: project.id, floorsProcessed: floors.length, totals };
   } catch (e) {
-    // Mark failed, then rethrow
     try {
       yield context.df.callActivity("UpdateInferenceRunStatus", {
         client_name,
@@ -132,7 +122,6 @@ df.app.orchestration(orchestratorName, function* (context) {
         status: "Failed",
       });
     } catch (_) {}
-
     throw e;
   }
 });

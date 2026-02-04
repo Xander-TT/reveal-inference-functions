@@ -1,11 +1,7 @@
 // src/functions/UpdateFloorMetrics.js
 const df = require("durable-functions");
-const { getContainer, pk } = require("../shared/cosmos");
+const { getBuildingContainer, pkBuilding } = require("../shared/cosmos");
 
-/**
- * Input: { client_name, slug, floorId, counts }
- * updates floor.metrics with counts and updatedAt
- */
 df.app.activity("UpdateFloorMetrics", {
   handler: async (input) => {
     const { client_name, slug, floorId, counts } = input || {};
@@ -13,12 +9,11 @@ df.app.activity("UpdateFloorMetrics", {
       throw new Error("UpdateFloorMetrics requires { client_name, slug, floorId, counts }");
     }
 
-    const container = getContainer();
-    const partitionKey = pk(client_name, slug);
+    const container = getBuildingContainer();
+    const partitionKey = pkBuilding(client_name, slug);
+
     const { resource: floorDoc } = await container.item(floorId, partitionKey).read();
-    if (!floorDoc) {
-      throw new Error(`Floor doc not found: ${floorId}`);
-    }
+    if (!floorDoc) throw new Error(`Floor doc not found: ${floorId}`);
 
     floorDoc.metrics = floorDoc.metrics || {};
     floorDoc.metrics.columnsDetected = counts.columnsDetected || 0;

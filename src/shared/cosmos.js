@@ -14,22 +14,27 @@ function getCosmosClient() {
   return _client;
 }
 
-function getBuildingContainer() {
-  const client = getCosmosClient();
-  return client.database(config.cosmos.database).container(config.cosmos.containerBuilding);
+function getDatabase() {
+  return getCosmosClient().database(config.cosmos.database);
+}
+
+function getInferenceRunsContainer() {
+  return getDatabase().container(config.cosmos.containerInferenceRuns);
+}
+
+function getProjectsContainer() {
+  return getDatabase().container(config.cosmos.containerProjects);
 }
 
 function getEditorDocsContainer() {
-  const client = getCosmosClient();
-  return client.database(config.cosmos.database).container(config.cosmos.containerEditorDocs);
+  return getDatabase().container(config.cosmos.containerEditorDocs);
 }
 
 function getEditorEventsContainer() {
-  const client = getCosmosClient();
-  return client.database(config.cosmos.database).container(config.cosmos.containerEditorEvents);
+  return getDatabase().container(config.cosmos.containerEditorEvents);
 }
 
-// Hierarchical PK for building container
+// Hierarchical PK for projects / inference-runs containers: [client_name, slug]
 function pkBuilding(client_name, slug) {
   return [client_name, slug];
 }
@@ -40,9 +45,11 @@ function pkFloorKey(floorKey) {
 }
 
 module.exports = {
-  getBuildingContainer,
+  getInferenceRunsContainer,
+  getProjectsContainer,
   getEditorDocsContainer,
   getEditorEventsContainer,
   pkBuilding,
   pkFloorKey,
 };
+

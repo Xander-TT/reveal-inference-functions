@@ -1,25 +1,25 @@
 // src/functions/UpdateInferenceRunStatus.js
 const df = require("durable-functions");
-const { getBuildingContainer, pkBuilding } = require("../shared/cosmos");
+const { getInferenceRunsContainer, pkBuilding } = require("../shared/cosmos");
 
 function runId(client_name, slug) {
   return `infer::${client_name}::${slug}`;
 }
 
 const TERMINAL = new Set(["Completed", "Failed"]);
-const VALID = new Set(["Running", "Completed", "Failed"]);
+const VALID = new Set(["Queued", "Processing", "Completed", "Failed"]);
 
 df.app.activity("UpdateInferenceRunStatus", {
   handler: async (input) => {
-    const { client_name, slug, status, totalFloors, processedFloors, totals } = input || {};
+    const { client_name, slug, status, totalFloors, processedFloors, totals, error } = input || {};
     if (!client_name || !slug) {
       throw new Error("UpdateInferenceRunStatus requires { client_name, slug, ... }");
     }
     if (status && !VALID.has(status)) {
-      throw new Error(`Invalid status '${status}'. Allowed: Running, Completed, Failed`);
+      throw new Error(`Invalid status '${status}'. Allowed: Queued, Processing, Completed, Failed`);
     }
 
-    const container = getBuildingContainer();
+    const container = getInferenceRunsContainer();
     const id = runId(client_name, slug);
     const partitionKey = pkBuilding(client_name, slug);
 
@@ -34,6 +34,7 @@ df.app.activity("UpdateInferenceRunStatus", {
     if (typeof processedFloors === "number") doc.processedFloors = processedFloors;
     if (totals && typeof totals === "object") doc.totals = { ...doc.totals, ...totals };
     if (status) doc.status = status;
+    if (error !== undefined) doc.error = error ? String(error).slice(0, 500) : null;
 
     doc.updatedAt = now;
     if (status && TERMINAL.has(status) && !doc.completedAt) doc.completedAt = now;

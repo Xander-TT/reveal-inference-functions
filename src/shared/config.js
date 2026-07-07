@@ -19,12 +19,16 @@ const config = Object.freeze({
     key: mustGet("COSMOS_KEY"),
     database: mustGet("COSMOS_DATABASE"),
 
-    // building container (project/floor/inferenceRun)
-    containerBuilding: mustGet("COSMOS_CONTAINER_BUILDING"),
+    // Domain-specific containers (required)
+    containerInferenceRuns: mustGet("COSMOS_CONTAINER_INFERENCE_RUNS"),
+    containerProjects: mustGet("COSMOS_CONTAINER_PROJECTS"),
 
-    // new editor containers
+    // Editor containers (required)
     containerEditorDocs: mustGet("COSMOS_CONTAINER_EDITOR_DOCS"),
     containerEditorEvents: mustGet("COSMOS_CONTAINER_EDITOR_EVENTS"),
+
+    // Optional / legacy containers — set in Azure app settings but not used by the Function directly
+    containerBuilding: process.env.COSMOS_CONTAINER_BUILDING || null,
   },
   blob: {
     connectionString: mustGet("REVEALBLOB_CONNECTION_STRING"),

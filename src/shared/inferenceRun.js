@@ -13,7 +13,7 @@ function buildInferenceRunDoc({ client_name, slug, projectId, requestedBy }) {
     slug,
     projectId,
 
-    status: "Running",
+    status: "Processing",
 
     requestedBy: requestedBy || null,
 

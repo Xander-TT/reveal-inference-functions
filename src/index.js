@@ -1,4 +1,3 @@
-// src/index.js
 require("./functions/HttpStart");
 require("./functions/Orchestrator");
 require("./functions/GetProjectAndFloors");

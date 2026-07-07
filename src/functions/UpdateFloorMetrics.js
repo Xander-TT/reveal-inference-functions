@@ -1,6 +1,6 @@
 // src/functions/UpdateFloorMetrics.js
 const df = require("durable-functions");
-const { getBuildingContainer, pkBuilding } = require("../shared/cosmos");
+const { getProjectsContainer, pkBuilding } = require("../shared/cosmos");
 
 df.app.activity("UpdateFloorMetrics", {
   handler: async (input) => {
@@ -9,7 +9,7 @@ df.app.activity("UpdateFloorMetrics", {
       throw new Error("UpdateFloorMetrics requires { client_name, slug, floorId, counts }");
     }
 
-    const container = getBuildingContainer();
+    const container = getProjectsContainer();
     const partitionKey = pkBuilding(client_name, slug);
 
     const { resource: floorDoc } = await container.item(floorId, partitionKey).read();

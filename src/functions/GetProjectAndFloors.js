@@ -1,16 +1,22 @@
 // src/functions/GetProjectAndFloors.js
 const df = require("durable-functions");
-const { getBuildingContainer, pkBuilding } = require("../shared/cosmos");
+const { getProjectsContainer, pkBuilding } = require("../shared/cosmos");
 
 df.app.activity("GetProjectAndFloors", {
-  handler: async (input) => {
+  handler: async (input, context) => {
     const { client_name, slug } = input || {};
     if (!client_name || !slug) {
       throw new Error("GetProjectAndFloors requires { client_name, slug }");
     }
 
-    const container = getBuildingContainer();
+    const { config } = require("../shared/config");
+    const container = getProjectsContainer();
     const partitionKey = pkBuilding(client_name, slug);
+
+    context.log(
+      `[GetProjectAndFloors] Querying container='${config.cosmos.containerProjects}' ` +
+        `partitionKey=[${partitionKey}] for client_name='${client_name}' slug='${slug}'`
+    );
 
     const projectQuery = {
       query:
@@ -45,6 +51,14 @@ df.app.activity("GetProjectAndFloors", {
     const { resources: floors } = await container.items
       .query(floorsQuery, { partitionKey })
       .fetchAll();
+
+    if (!floors || floors.length === 0) {
+      context.log.warn(
+        `[GetProjectAndFloors] No floor documents found in container='${config.cosmos.containerProjects}' ` +
+          `for client_name='${client_name}' slug='${slug}'. ` +
+          `Verify floor documents have been migrated from the legacy 'building' container.`
+      );
+    }
 
     const floorWork = (floors || []).map((f) => ({
       id: f.id,

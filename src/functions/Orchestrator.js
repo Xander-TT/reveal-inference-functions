@@ -25,7 +25,7 @@ df.app.orchestration(orchestratorName, function* (context) {
     yield context.df.callActivity("UpdateInferenceRunStatus", {
       client_name,
       slug,
-      status: "Running",
+      status: "Processing",
       totalFloors: floors.length,
       processedFloors: 0,
       totals,
@@ -69,7 +69,7 @@ df.app.orchestration(orchestratorName, function* (context) {
         model: raw?.model || null,
       });
 
-      // 5) Update floor metrics in building container
+      // 5) Update floor metrics in projects container
       yield context.df.callActivity("UpdateFloorMetrics", {
         client_name,
         slug,
@@ -120,6 +120,7 @@ df.app.orchestration(orchestratorName, function* (context) {
         client_name,
         slug,
         status: "Failed",
+        error: e.message || String(e),
       });
     } catch (_) {}
     throw e;

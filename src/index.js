@@ -3,8 +3,7 @@ require("./functions/Orchestrator");
 require("./functions/GetProjectAndFloors");
 require("./functions/UpdateInferenceRunStatus");
 
-require("./functions/GenerateSas");
-require("./functions/CallAmlInference");
+require("./functions/RunYoloInferenceForFloor");
 
 require("./functions/WriteRawInference");
 require("./functions/UpsertEditorDocFromInference");

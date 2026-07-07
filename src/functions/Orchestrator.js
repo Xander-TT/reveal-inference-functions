@@ -37,24 +37,19 @@ df.app.orchestration(orchestratorName, function* (context) {
       const floor = floors[i];
       const floorId = floor.id;
 
-      // 1) SAS for plan image
-      const { sasUrl } = yield context.df.callActivity("GenerateSas", {
-        blobPath: floor.planUrl,
-      });
-
-      // 2) AML call
-      const raw = yield context.df.callActivityWithRetry("CallAmlInference", amlRetry, {
-        sasUrl,
+      // 1) Download image from Blob Storage and call AML — all inside one activity.
+      // base64 never passes through orchestration history.
+      const raw = yield context.df.callActivityWithRetry("RunYoloInferenceForFloor", amlRetry, {
+        floorId,
+        imageBlobPath: floor.planUrl,
         client_name,
         slug,
-        floorId,
-        planUrl: floor.planUrl,
       });
 
-      // 3) Write raw inference JSON to blob
+      // 2) Write raw inference JSON to blob
       yield context.df.callActivity("WriteRawInference", { slug, floorId, raw });
 
-      // 4) Upsert Cosmos editorDoc + write editorEvents (+ optional legacy blob latest.json)
+      // 3) Upsert Cosmos editorDoc + write editorEvents (+ optional legacy blob latest.json)
       const upserted = yield context.df.callActivity("UpsertEditorDocFromInference", {
         clientName: client_name, // your editorDoc examples use "AMC"
         projectSlug: slug,
@@ -69,7 +64,7 @@ df.app.orchestration(orchestratorName, function* (context) {
         model: raw?.model || null,
       });
 
-      // 5) Update floor metrics in projects container
+      // 4) Update floor metrics in projects container
       yield context.df.callActivity("UpdateFloorMetrics", {
         client_name,
         slug,
@@ -77,14 +72,14 @@ df.app.orchestration(orchestratorName, function* (context) {
         counts: upserted.counts,
       });
 
-      // 6) Accumulate totals
+      // 5) Accumulate totals
       totals = {
         columnsDetected: (totals.columnsDetected || 0) + (upserted.counts.columnsDetected || 0),
         beamsDetected: (totals.beamsDetected || 0) + (upserted.counts.beamsDetected || 0),
         polygonsDetected: (totals.polygonsDetected || 0) + (upserted.counts.polygonsDetected || 0),
       };
 
-      // 7) Persist run progress & cumulative totals
+      // 6) Persist run progress & cumulative totals
       yield context.df.callActivity("UpdateInferenceRunStatus", {
         client_name,
         slug,
